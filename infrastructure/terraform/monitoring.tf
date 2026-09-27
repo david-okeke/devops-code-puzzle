@@ -19,7 +19,7 @@ resource "aws_cloudwatch_metric_alarm" "ec2_status_check" {
   statistic           = "Maximum"
   threshold           = 0
   alarm_actions       = [aws_sns_topic.alarms.arn]
-  dimensions = { InstanceId = aws_instance.web.id }
+  dimensions          = { InstanceId = aws_instance.web.id }
 }
 
 resource "aws_cloudwatch_metric_alarm" "app_health" {

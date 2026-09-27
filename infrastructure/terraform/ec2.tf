@@ -13,7 +13,7 @@ resource "aws_instance" "web" {
     db_port          = aws_db_instance.main.port
     db_name          = var.db_name
     db_username      = var.db_username
-    secret_arn       = aws_ssm_parameter.db_password.arn   # 👈 back to this
+    secret_arn       = aws_ssm_parameter.db_password.arn # 👈 back to this
     aws_region       = var.aws_region
     environment      = var.environment
     project_name     = var.project_name

@@ -1,7 +1,7 @@
 variable "project_name" {
   description = "Short name used to prefix/tag all resources"
   type        = string
-  default     = "devops-code-puzzle"   #change
+  default     = "devops-code-puzzle" #change
 }
 
 variable "environment" {
@@ -16,7 +16,7 @@ variable "environment" {
 variable "aws_region" {
   description = "AWS region to deploy into"
   type        = string
-  default     = "us-east-1"   #change
+  default     = "us-east-1" #change
 }
 
 variable "vpc_cidr" {
@@ -70,11 +70,11 @@ variable "db_username" {
 variable "domain_name" {
   description = "Public domain name pointed at the app's Elastic IP. Leave empty to use a self-signed cert instead of Let's Encrypt."
   type        = string
-  default     = ""   #set in your .tfvars file if you own a domain
+  default     = "" #set in your .tfvars file if you own a domain
 }
 
 variable "sns_alarm_email" {
   description = "Optional email to subscribe to CloudWatch alarms. Leave empty to skip."
   type        = string
-  default     = ""   #set in your .tfvars file if you want alarm emails
+  default     = "" #set in your .tfvars file if you want alarm emails
 }
