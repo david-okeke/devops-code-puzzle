@@ -1,13 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-# --- 1. Install Docker + Compose plugin -------------------------------------
+# --- 1. Install Docker + Compose plugin (pinned version) --------------------
 dnf install -y docker
 systemctl enable --now docker
 mkdir -p /usr/local/lib/docker/cli-plugins
-curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+curl -SL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 \
   -o /usr/local/lib/docker/cli-plugins/docker-compose
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+# buildx is required by "docker compose build"
+curl -SL https://github.com/docker/buildx/releases/download/v0.17.1/buildx-v0.17.1.linux-amd64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 
 # --- 2. Write the application source (embedded, no registry needed) --------
 mkdir -p /opt/app
@@ -32,7 +36,7 @@ CLOUD_PROVIDER=AWS
 ENVEOF
 unset DB_PASSWORD
 
-# --- 4. Caddy config: real TLS if a domain was given, self-signed if not ---
+# --- 4. Caddy config: real TLS if a domain was given, else self-signed on the public IP
 if [ -n "${domain_name}" ]; then
   cat > /opt/app/Caddyfile <<CADDYEOF
 ${domain_name} {
@@ -40,11 +44,20 @@ ${domain_name} {
 }
 CADDYEOF
 else
+  TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
+    -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+  PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
+    http://169.254.169.254/latest/meta-data/public-ipv4)
   cat > /opt/app/Caddyfile <<CADDYEOF
-:443 {
+{
+    default_sni $PUBLIC_IP
+}
+
+$PUBLIC_IP {
     tls internal
     reverse_proxy app:8080
 }
+
 :80 {
     redir https://{host}{uri} permanent
 }

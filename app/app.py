@@ -36,6 +36,14 @@ def init_db():
 def record_visit():
     conn = get_connection()
     cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS visits (
+            id SERIAL PRIMARY KEY,
+            visited_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """
+    )
     cur.execute("INSERT INTO visits (visited_at) VALUES (now())")
     conn.commit()
     cur.execute("SELECT count(*) FROM visits")

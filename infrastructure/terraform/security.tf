@@ -4,7 +4,7 @@ resource "aws_security_group" "web" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "HTTP (redirects to HTTPS, and used for Let's Encrypt challenge)"
+    description = "HTTP, redirects to HTTPS and used for the ACME challenge"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"

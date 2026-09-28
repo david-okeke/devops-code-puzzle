@@ -31,7 +31,7 @@ data "aws_iam_policy_document" "ec2_inline" {
   statement {
     sid       = "PublishHealthMetric"
     actions   = ["cloudwatch:PutMetricData"]
-    resources = ["*"] # PutMetricData has no resource-level ARNs
+    resources = ["*"]
     condition {
       test     = "StringEquals"
       variable = "cloudwatch:namespace"
