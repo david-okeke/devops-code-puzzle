@@ -20,6 +20,7 @@ env:
   TF_DIR: infrastructure/terraform
 
 jobs:
+  # VALIDATE
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -42,11 +43,14 @@ jobs:
       - run: terraform -chdir=${{ env.TF_DIR }} init
       - run: terraform -chdir=${{ env.TF_DIR }} plan -var-file=environments/dev.tfvars
 
+  # DEPLOY (dev) — manual trigger only, until a shared remote state backend exists
   apply-dev:
     needs: plan-dev
     if: github.event_name == 'workflow_dispatch' && inputs.deploy
     runs-on: ubuntu-latest
     environment: development
+    outputs:
+      app_url: ${{ steps.tf-output.outputs.app_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
@@ -56,12 +60,40 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
       - run: terraform -chdir=${{ env.TF_DIR }} init
       - run: terraform -chdir=${{ env.TF_DIR }} apply -auto-approve -var-file=environments/dev.tfvars
+      - name: Get app URL
+        id: tf-output
+        run: |
+          URL=$(terraform -chdir=${{ env.TF_DIR }} output -raw app_url)
+          echo "app_url=$URL" >> "$GITHUB_OUTPUT"
 
-  apply-prod:
+  # TEST — proves the deployment actually works, not just that it ran
+  smoke-test-dev:
     needs: apply-dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for app to boot
+        run: sleep 90
+      - name: Check health endpoint
+        run: |
+          URL="${{ needs.apply-dev.outputs.app_url }}"
+          echo "Testing $URL/health"
+          STATUS=$(curl -sk -o /tmp/health.json -w "%{http_code}" "$URL/health")
+          cat /tmp/health.json
+          if [ "$STATUS" != "200" ]; then
+            echo "Health check failed with status $STATUS"
+            exit 1
+          fi
+          grep -q '"status": *"ok"' /tmp/health.json || { echo "App reported unhealthy"; exit 1; }
+          echo "Smoke test passed."
+
+  # DEPLOY (prod) — gated behind a required reviewer on the "production" environment
+  apply-prod:
+    needs: smoke-test-dev
     if: github.event_name == 'workflow_dispatch' && inputs.deploy
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      app_url: ${{ steps.tf-output.outputs.app_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
@@ -71,3 +103,27 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
       - run: terraform -chdir=${{ env.TF_DIR }} init
       - run: terraform -chdir=${{ env.TF_DIR }} apply -auto-approve -var-file=environments/prod.tfvars
+      - name: Get app URL
+        id: tf-output
+        run: |
+          URL=$(terraform -chdir=${{ env.TF_DIR }} output -raw app_url)
+          echo "app_url=$URL" >> "$GITHUB_OUTPUT"
+
+  smoke-test-prod:
+    needs: apply-prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for app to boot
+        run: sleep 90
+      - name: Check health endpoint
+        run: |
+          URL="${{ needs.apply-prod.outputs.app_url }}"
+          echo "Testing $URL/health"
+          STATUS=$(curl -sk -o /tmp/health.json -w "%{http_code}" "$URL/health")
+          cat /tmp/health.json
+          if [ "$STATUS" != "200" ]; then
+            echo "Health check failed with status $STATUS"
+            exit 1
+          fi
+          grep -q '"status": *"ok"' /tmp/health.json || { echo "App reported unhealthy"; exit 1; }
+          echo "Smoke test passed."
