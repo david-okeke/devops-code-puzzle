@@ -5,6 +5,12 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Run apply jobs (only safe with shared remote state)"
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -38,9 +44,9 @@ jobs:
 
   apply-dev:
     needs: plan-dev
-    if: github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
     runs-on: ubuntu-latest
-    environment: development   # 👈 you create this "Environment" in GitHub settings — see below
+    environment: development
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
@@ -53,9 +59,9 @@ jobs:
 
   apply-prod:
     needs: apply-dev
-    if: github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
     runs-on: ubuntu-latest
-    environment: production   # 👈 you create this "Environment" in GitHub settings, WITH a required reviewer — see below
+    environment: production
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
